@@ -1,0 +1,52 @@
+---
+title: "Diversidad morfológica en Aves y su posible relación con diversos modos del desarrollo"
+author: "José Antonio Palma Liberona"
+date: "07-01-2021"
+output: 
+  bookdown::html_document2:
+    fig_caption: yes
+bibliography: biblio_JPalma.bib
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE, warning = FALSE, error = FALSE, message = FALSE)
+library(tidyverse)
+
+```
+
+# Introducción
+```{r}
+bird_data <- read_csv("bird_database.csv")
+bird_data <- bird_data %>% 
+  mutate(across(Wing.length:Tail.length, ~./Weight)) %>% 
+  mutate(Prop = Wing.length/Tail.length, .before = Weight)
+
+```
+
+Las Aves son un grupo de Vertebrados enormemente diverso representado por más de 10.000 especies y cubriendo 165-150 millones de años de historia evolutiva [@Brusatte2015]. Esta diversidad se expresa no solo en el número de especies sino que también en un amplio rango de tamaños corporales, diversos modos de locomoción [@Gatesy1996], diferentes proporciones de extremidades [@Gatesy1997] y modos del desarrollo [@Starck1998], siendo este último punto de particular interés para el presente trabajo.
+
+El desarrollo Aviano ha sido clasificado acorde tanto a rasgos etológicos como morfológicos definiendose un espectro de modos del desarrollo que va desde super-precocial, crías  con ausencia absoluta de cuidado parental y capaces de locomoción; a precocial, crías capaces de locomoción al poco tiempo de eclosionar con diversos niveles de cuidado parental; a semi-precocial, crías capaces de locomoción que se mantienen dentro del nido y son protejidas por los parentales; a semi-altricial, crías que nacen sin la capacidad de libre locomoción, a altricial, crías incapaces de locomoción y que nacen con los ojos cerrados; a super-altricial, crías que nacen sin capacidad locomotora además de con los ojos cerrados y sin plumaje [@Starck1998; @Botelho2015]. Las consecuencias de esta diversidad de modos del desarrollo no se restringe a las condiciones de la cría al eclosionar y tiene efectos duraderos en los patrones de crecimiento, metabolismo [@Vleck1980], complejidad de la estructura social [@Scheiber2017] y modos de vuelo [@Shatkovska2017] entre otras.
+
+Dado el amplio rango de efectos que el modo de desarrollo de Aves puede tener no es sorprendente que efectos sobre la morfología de las alas hayan sido reportados [@Shatkovska2017]. No obstante, hasta ahora no se han descrito efectos de los modos del desarrollo sobre el posible rango de planes corporales presentes en Aves.
+
+En el presente trabajo se buscó como mejor explicar la diversidad de planes corporales encontrada en Aves. Para esto se utilizó la razón entre el largo de ala y de tarso para aproximar esta diversidad y se buscó el mejor modelo para esta diversidad considerando variables relacionadas con los modos de alimentación (largo, ancho y lato del pico), la posición filogenética (Familia y Orden), el desarrollo (modo de desarrollo y estadio) y otras medidas morfológicas (largo de cola y peso). Para esto se generó una base de datos de `r nrow(bird_data) %>%  prettyNum(big.mark = ".")` medidas de Aves a partir de dos bases de datos de aves sudamericanas publicadas [@Montoya2018; @Rodrigues2019].
+
+# Hipotesis
+
+Debido a su efecto en el restringir o posibilitar patrones de crecimiento extremo, la variable de modo del desarrollo estará presente en el mejor modelo siendo crucial en poder explicar la diversidad de planes corporales.
+
+# Métodos
+## Preparación del set de datos
+Partiendo de los set de datos publicados en [@Montoya2018] y [@Rodrigues2019] se procedió a seleccionar un subset de 7 variables morfológicas comunes a ambos sets y se curó la base de datos manteniendo solo aquellas observaciones que presentasen valores para todas las variables, además de un estadio ontogenético definido, resultando esto en las `r nrow(bird_data) %>%  prettyNum(big.mark = ".")` observaciones previamente reportadas. Posteriormente, el modo de desarrollo para cada observación fue asignado acorde a lo publicado en [@Botelho2015] con la salvedad de que no se hicieron distinciones entre aves semi-precociales y precociales debido a la ausencia de diferencias morfológicas entre estos modos de desarrollo [@Vleck1980], adicionalmente el set de datos no presenta ninguna observación correspondiente a aves super-precociales. Con el fin de eliminar el efecto de los distintos tamaños corporales sobre las mediciones consideradas estas fueron normalizadas por el peso reportado para cada ave, el cual es un buen proxy de tamaño. Finalmente se construyo la variable respuesta a considerar dividiendo el largo de ala normalizado por el largo de tarso normalizado, esto con el fin de aproximar las proporciones de alas y piernas (las cuales están altamente relacionadas con el plan corporal) en una única variable.
+
+## Evaluación de modelos
+Con el fin de guiar los modelos a aplicar se evaluó la relación entre las variables continuas consideradas y la variable respuesta. posteriormente se evaluó la correlación entre estas variables para elucidar si la exclusión de alguna es necesaria.
+Finalmente se procedió a generar combinaciones de modelos lineales y evaluar su rendimiento mediante el valor de AICc de cada modelo. 
+
+# Resultados
+
+
+# Conclusiones
+
+
+# Referencias
