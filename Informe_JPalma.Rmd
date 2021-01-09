@@ -11,7 +11,8 @@ bibliography: biblio_JPalma.bib
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = FALSE, warning = FALSE, error = FALSE, message = FALSE)
 library(tidyverse)
-
+library(caret)
+library(kableExtra)
 ```
 
 # Introducción
@@ -29,7 +30,7 @@ El desarrollo Aviano ha sido clasificado acorde tanto a rasgos etológicos como 
 
 Dado el amplio rango de efectos que el modo de desarrollo de Aves puede tener no es sorprendente que efectos sobre la morfología de las alas hayan sido reportados [@Shatkovska2017]. No obstante, hasta ahora no se han descrito efectos de los modos del desarrollo sobre el posible rango de planes corporales presentes en Aves.
 
-En el presente trabajo se buscó como mejor explicar la diversidad de planes corporales encontrada en Aves. Para esto se utilizó la razón entre el largo de ala y de tarso para aproximar esta diversidad y se buscó el mejor modelo para esta diversidad considerando variables relacionadas con los modos de alimentación (largo, ancho y lato del pico), la posición filogenética (Familia y Orden), el desarrollo (modo de desarrollo y estadio) y otras medidas morfológicas (largo de cola y peso). Para esto se generó una base de datos de `r nrow(bird_data) %>%  prettyNum(big.mark = ".")` medidas de Aves a partir de dos bases de datos de aves sudamericanas publicadas [@Montoya2018; @Rodrigues2019].
+En el presente trabajo se buscó como mejor explicar la diversidad de planes corporales encontrada en Aves. Para esto se utilizó la razón entre el largo de ala y de tarso para aproximar esta diversidad y se buscó el mejor modelo para esta diversidad considerando variables relacionadas con los modos de alimentación (largo, ancho y lato del pico), la posición filogenética (Orden), el desarrollo (modo de desarrollo y estadio) y otras medidas morfológicas (largo de cola y peso). Para esto se generó una base de datos de `r nrow(bird_data) %>%  prettyNum(big.mark = ".")` medidas de Aves a partir de dos bases de datos de aves sudamericanas publicadas [@Montoya2018; @Rodrigues2019].
 
 # Hipotesis
 
@@ -41,12 +42,87 @@ Partiendo de los set de datos publicados en [@Montoya2018] y [@Rodrigues2019] se
 
 ## Evaluación de modelos
 Con el fin de guiar los modelos a aplicar se evaluó la relación entre las variables continuas consideradas y la variable respuesta. posteriormente se evaluó la correlación entre estas variables para elucidar si la exclusión de alguna es necesaria.
-Finalmente se procedió a generar combinaciones de modelos lineales y evaluar su rendimiento mediante el valor de AICc de cada modelo. 
+Finalmente se procedió a generar combinaciones de modelos lineales y evaluar su rendimiento mediante el valor de RMSE de cada modelo. 
 
 # Resultados
 
+Tras evaluar la relación entre las variables continuas consideradas y la variable respuesta generada se observó que el largo de la cola presenta una relación asintótica con esta variable (\@ref(fig:tailplot)), por esto se decidió invertir estos valores a modo de linearizarlos.
+
+
+```{r tailplot, fig.cap = "Gráfico de puntos que ilustra la relación entre la variable Proporcion corporal y largo de cola", fig.align = "center", fig.height= 4, fig.width = 10}
+dmy_data <- bird_data %>% pivot_longer(cols = Dev.mode:Dev.stage, 
+                                       names_to = "dev.type", 
+                                       values_to = "dev.val")
+ggplot(dmy_data, aes(x = Tail.length, y = Prop, color = dev.val)) +
+  geom_point(alpha = 0.5) + facet_wrap(~dev.type) +
+  scale_color_brewer(palette = "Accent") +
+  xlab("Longitud de Cola (mm)") +
+  ylab("Proporcion extremidades") +
+  labs(color = "Categoría de desarrollo") +
+  theme_bw()
+
+
+```
+
+
+Una vez invertida esta variable se procedió a evaluar el grado de correlación entre las variables continuas consideradas encontrandose una alta corelación entre el alto y ancho del pico (\@ref(tab:cormtx)) razón por la que se decidió excluir estas variables del mismo modelo.
+
+
+```{r cormtx}
+bird_data <- bird_data %>% 
+  mutate(Inv.tail = 1/Tail.length, .before = Tail.length)
+
+cormtx <- cor(bird_data[, 8:11])
+cormtx[!lower.tri(cormtx)] <- NA
+options(knitr.kable.NA = '')
+kable(cormtx, caption = "Correlación entre variables continuas consideradas") %>% 
+  kable_styling(bootstrap_options = c("condensed", "striped", "hover"), full_width = F)
+```
+
+
+Habiendo realizado estas exploraciones de los datos se procedió a generar un listado de modelos a probar considerando las variables continuas y su interacción con las variables categóricas, los modelos fueron generados mediante gbm y utilizando 5-fold crossvalidation, los resultados se presentan en la Tabla \@ref(tab:modeltable).
+
+```{r modeltable}
+f01 <- "Prop ~ Bill.length + Bill.depth + Inv.tail"
+f02 <- "Prop ~ Bill.length + Bill.width + Inv.tail"
+f03 <- "Prop ~ (Bill.length + Bill.depth + Inv.tail):Order"
+f04 <- "Prop ~ (Bill.length + Bill.width + Inv.tail):Order"
+f05 <- "Prop ~ (Bill.length + Bill.depth + Inv.tail):Dev.mode"
+f06 <- "Prop ~ (Bill.length + Bill.width + Inv.tail):Dev.mode"
+f07 <- "Prop ~ (Bill.length + Bill.depth + Inv.tail):Dev.stage"
+f08 <- "Prop ~ (Bill.length + Bill.width + Inv.tail):Dev.stage"
+f09 <- "Prop ~ (Bill.length + Bill.depth + Inv.tail):Dev.mode:Dev.stage"
+f10 <- "Prop ~ (Bill.length + Bill.width + Inv.tail):Dev.mode:Dev.stage"
+f11 <- "Prop ~ (Bill.length + Bill.depth + Inv.tail):Dev.mode:Order"
+f12 <- "Prop ~ (Bill.length + Bill.width + Inv.tail):Dev.mode:Order"
+f13 <- "Prop ~ (Bill.length + Bill.depth + Inv.tail):Dev.stage:Order"
+f14 <- "Prop ~ (Bill.length + Bill.width + Inv.tail):Dev.stage:Order"
+f15 <- "Prop ~ (Bill.length + Bill.depth + Inv.tail):Dev.mode:Dev.stage:Order"
+f16 <- "Prop ~ (Bill.length + Bill.width + Inv.tail):Dev.mode:Dev.stage:Order"
+formulas <- list(f01, f02, f03, f04, f05, f06, f07, f08, f09, f10, f11, f12, f13, f14, f15, f16)
+
+ctrl <-trainControl(method = "cv", number = 5) 
+tune <- expand.grid(mstop = seq(100, 500, by = 100), prune = c(0, 1,3))
+
+Models <- formulas %>% 
+  map(~train(as.formula(.x), data = bird_data, method = "glmboost", trControl = ctrl, tuneGrid = tune)) %>% 
+  map(~as.data.frame(.x$resample)) %>% 
+  map(~select(.x, Rsquared)) %>% 
+  map(~summarize_all(.x, funs(mean, sd), na.rm = T)) %>% 
+  map2(.y = formulas, ~mutate(.x, model = .y)) %>% 
+  reduce(bind_rows) %>% 
+  arrange(desc(mean))
+names(Models) <- c("R.cuadrado medio", "SD.R.cuadrado", "Modelos")
+  
+kable(Models, caption = "Modelos de explicacion de la diversidad morfologica en Aves") %>% 
+  kable_styling(bootstrap_options = c("condensed", "striped", "hover"), full_width = F)
+```
+
+En base a los resultados arriba presentados se observa que el mejor modelo es el que considera los parámetros de largo y ancho de pico, el inverso del largo de la cola y la interacción de estas variables con el Orden al que pertenecen las distintas aves, indicando un fuerte componente filogenético en la diversidad morfológica. No obstante este modelo es bastante deficiente al considerar el valor de R cuadrado asociado alcanza solo un 31% de la varianza observada por lo que lo más probable es que otros factores no considerados en este análisis expliquen mejor a los datos observados.
 
 # Conclusiones
 
+Si bien el análisis aquí presentado es una primera aproximación a evaluar los factores que permiten explicar la diversidad morfológica observada en Aves, es claro dado los resultados obtenidos que las variables consideradas no son suficientes o que la medida de diversidad morfológica utilizada es deficiente. No obstante los resultados aquí obtenidos reafirman, aunque sea débilmente, que la estrategia de desarrollo puede cumplir un rol en explicar esta diversidad, puesto que el segundo mejor modelo considera esta variable (\@ref(tab:modeltable)). 
+Otra posible aproximación a este problema sería el uso de métodos de clasificación de estrategias del desarrollo en base a rasgos morfológicos, permitiendo esto evaluar si la morfología permite identificar el modo de  desarrollo, no obstante se optó por la presente estrategia dado que el presente curso se centró en modelos de regresión por sobre clasificación y que este metodo ya fue aplicado en un informe de otro curso.
 
 # Referencias
